@@ -9,7 +9,6 @@ window.onresize = function() {
 }
 window.onload = function() {
     window.onresize()
-    timer = new Date().getTime()
     requestAnimationFrame(loop)
 }
 
@@ -49,7 +48,7 @@ class Player {
     static update(inst) {
         inst.position = inst.position.add(inst.velocity)
         inst.velocity = inst.velocity.add(inst.accelaration)
-        inst.accelaration = new Vector(0, -3).scale(timeDelta)
+        inst.accelaration = new Vector(0, -3).scale(0.01)
         if(inst.position.x < -1000) {
             inst.position.x = -1000
             inst.velocity.x = Math.max(inst.velocity.x, 0)
@@ -93,29 +92,28 @@ class Player {
             }
         })
         if(inst.keys["ArrowRight"]) {
-            inst.accelaration = inst.accelaration.add(new Vector(5, 0).scale(timeDelta))
+            inst.accelaration = inst.accelaration.add(new Vector(5, 0).scale(0.01))
         }
         if(inst.keys["ArrowLeft"]) {
-            inst.accelaration = inst.accelaration.add(new Vector(-5, 0).scale(timeDelta))
+            inst.accelaration = inst.accelaration.add(new Vector(-5, 0).scale(0.01))
         }
         if(inst.keys["ArrowUp"] && jumpable) {
-            inst.accelaration = inst.accelaration.add(new Vector(0, -inst.velocity.y)).add(new Vector(0, 5.1))
+            inst.accelaration = inst.accelaration.add(new Vector(0, -inst.velocity.y)).add(new Vector(0, 6.1))
         }
     }
 }
 
-let updateInterval
 ws.addEventListener("open", () => {
-    updateInterval = setInterval(() => {
+    setInterval(() => {
+        Player.update(player)
+        for(let key in sessions) {
+            Player.update(sessions[key])
+        }
         ws.send(JSON.stringify({
             type: "update",
             value: player,
         }))
-    }, 100)
-})
-
-ws.addEventListener("close", () => {
-    clearInterval(updateInterval)
+    }, 10)
 })
 
 let uuid = ""
@@ -174,9 +172,6 @@ window.onkeyup = function(e) {
     }))
 }
 
-let timer = 0
-let timeDelta = 0
-
 let blocks = [
     {min: new Vector(-1025, -50), max: new Vector(1025, 0)},
     {min: new Vector(300, 500), max: new Vector(600, 550)},
@@ -194,12 +189,6 @@ let blocks = [
 
 function loop() {
     requestAnimationFrame(loop)
-    timeDelta = (Date.now() - timer) / 1000
-    timer = Date.now()
-    Player.update(player)
-    for(let key in sessions) {
-        Player.update(sessions[key])
-    }
     let context = canvas.getContext("2d")
     context.clearRect(0, 0, canvas.width, canvas.height)
     context.save()
