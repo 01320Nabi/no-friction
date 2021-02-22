@@ -43,22 +43,23 @@ class Player {
         this.position = position || new Vector(0, 0)
         this.velocity = new Vector(0, 0)
         this.accelaration = new Vector(0, 0)
+        this.keys = {}
+        this.uuid = null
     }
-    update() {
-        this.position = this.position.add(this.velocity)
-        this.velocity = this.velocity.add(this.accelaration)
-        this.accelaration = new Vector(0, -3).scale(timeDelta)
-        if(this.position.x < -1000) {
-            this.position.x = -1000
-            this.velocity.x = Math.max(this.velocity.x, 0)
+    static update(inst) {
+        inst.position = inst.position.add(inst.velocity)
+        inst.velocity = inst.velocity.add(inst.accelaration)
+        inst.accelaration = new Vector(0, -3).scale(timeDelta)
+        if(inst.position.x < -1000) {
+            inst.position.x = -1000
+            inst.velocity.x = Math.max(inst.velocity.x, 0)
         }
-        if(this.position.x > 1000) {
-            this.position.x = 1000
-            this.velocity.x = Math.min(this.velocity.x, 0)
+        if(inst.position.x > 1000) {
+            inst.position.x = 1000
+            inst.velocity.x = Math.min(inst.velocity.x, 0)
         }
         jumpable = false
-        let A = {min: this.position.add(new Vector(-25, 0)), max: this.position.add(new Vector(25, 50))}
-        let p = this
+        let A = {min: inst.position.add(new Vector(-25, 0)), max: inst.position.add(new Vector(25, 50))}
         blocks.forEach(B => {
             let n = B.min.add(B.max).scale(0.5).minus(A.min.add(A.max).scale(0.5))
             let aex = A.max.minus(A.min).scale(0.5)
@@ -69,56 +70,108 @@ class Player {
                 if(overlap.x > overlap.y) {
                     if(n.y > 0) {
                         normal = new Vector(0, -1)
-                        p.velocity.y = Math.min(p.velocity.y, 0)
+                        inst.velocity.y = Math.min(inst.velocity.y, 0)
                     }
                     else {
                         normal = new Vector(0, 1)
-                        p.velocity.y = Math.max(p.velocity.y, 0)
+                        inst.velocity.y = Math.max(inst.velocity.y, 0)
                         jumpable = true
                     }
-                    p.position = p.position.add(normal.scale(overlap.y))
+                    inst.position = inst.position.add(normal.scale(overlap.y))
                 }
                 else {
                     if(n.x > 0) {
                         normal = new Vector(-1, 0)
-                        p.velocity.x = Math.min(p.velocity.x, 0)
+                        inst.velocity.x = Math.min(inst.velocity.x, 0)
                     }
                     else {
                         normal = new Vector(1, 0)
-                        p.velocity.x = Math.max(p.velocity.x, 0)
+                        inst.velocity.x = Math.max(inst.velocity.x, 0)
                     }
-                    p.position = p.position.add(normal.scale(overlap.x))
+                    inst.position = inst.position.add(normal.scale(overlap.x))
                 }
             }
         })
-        if(keys["ArrowRight"]) {
-            this.accelaration = this.accelaration.add(new Vector(5, 0).scale(timeDelta))
+        if(inst.keys["ArrowRight"]) {
+            inst.accelaration = inst.accelaration.add(new Vector(5, 0).scale(timeDelta))
         }
-        if(keys["ArrowLeft"]) {
-            this.accelaration = this.accelaration.add(new Vector(-5, 0).scale(timeDelta))
+        if(inst.keys["ArrowLeft"]) {
+            inst.accelaration = inst.accelaration.add(new Vector(-5, 0).scale(timeDelta))
         }
-        if(keys["ArrowUp"] && jumpable) {
-            this.accelaration = this.accelaration.add(new Vector(0, -this.velocity.y)).add(new Vector(0, 5))
+        if(inst.keys["ArrowUp"] && jumpable) {
+            inst.accelaration = inst.accelaration.add(new Vector(0, -inst.velocity.y)).add(new Vector(0, 5.1))
         }
     }
 }
 
+let updateInterval
+ws.addEventListener("open", () => {
+    updateInterval = setInterval(() => {
+        ws.send(JSON.stringify({
+            type: "update",
+            value: player,
+        }))
+    }, 1000)
+})
+
+ws.addEventListener("close", () => {
+    clearInterval(updateInterval)
+})
+
+let uuid = ""
 ws.addEventListener("message", e => {
-    //
+    let data = JSON.parse(e.data)
+    switch(data.type) {
+        case "reg":
+            uuid = data.uuid
+            sessions = data.value
+            for(let key in sessions) {
+                sessions[key].position = new Vector(sessions[key].position.x, sessions[key].position.y)
+                sessions[key].velocity = new Vector(sessions[key].velocity.x, sessions[key].velocity.y)
+                sessions[key].accelaration = new Vector(sessions[key].accelaration.x, sessions[key].accelaration.y)
+            }
+            delete sessions[uuid]
+            break
+        case "key":
+            if(data.uuid != uuid) {
+                sessions[data.uuid].keys[data.key] = data.value
+            }
+            break
+        case "update":
+            if(data.uuid != uuid) {
+                sessions[data.uuid] = data.value
+                sessions[data.uuid].position = new Vector(sessions[data.uuid].position.x, sessions[data.uuid].position.y)
+                sessions[data.uuid].velocity = new Vector(sessions[data.uuid].velocity.x, sessions[data.uuid].velocity.y)
+                sessions[data.uuid].accelaration = new Vector(sessions[data.uuid].accelaration.x, sessions[data.uuid].accelaration.y)
+            }
+            break
+        case "close":
+            delete sessions[data.uuid]
+            break
+    }
 })
 
 let player = new Player(new Vector(0, 50))
 
-let multis = {}
+let sessions = []
 
 let jumpable = false
 
-let keys = {}
 window.onkeydown = function(e) {
-    keys[e.code] = true
+    player.keys[e.code] = true
+    ws.send(JSON.stringify({
+        type: "key",
+        key: e.code,
+        value: true,
+    }))
 }
 window.onkeyup = function(e) {
-    keys[e.code] = false
+    player.keys[e.code] = false
+    ws.send(JSON.stringify({
+        type: "key",
+        key: e.code,
+        value: false,
+    }))
 }
 
 let timer = 0
@@ -127,14 +180,26 @@ let timeDelta = 0
 let blocks = [
     {min: new Vector(-1025, -50), max: new Vector(1025, 0)},
     {min: new Vector(300, 500), max: new Vector(600, 550)},
+    {min: new Vector(-500, 600), max: new Vector(-400, 650)},
+    {min: new Vector(-400, 1200), max: new Vector(-300, 1250)},
+    {min: new Vector(200, 1250), max: new Vector(250, 1300)},
+    {min: new Vector(-100, 1850), max: new Vector(350, 1900)},
+    {min: new Vector(-100, 1850), max: new Vector(-50, 1950)},
+    {min: new Vector(-250, 2400), max: new Vector(-50, 2450)},
+    {min: new Vector(0, 2400), max: new Vector(200, 2450)},
+    {min: new Vector(-1025, 2600), max: new Vector(-975, 2650)},
+    {min: new Vector(975, 3100), max: new Vector(1025, 3150)},
+    {min: new Vector(-200, 3600), max: new Vector(200, 3650)},
 ]
 
 function loop() {
     requestAnimationFrame(loop)
-    timeDelta = (new Date().getTime() - timer) / 1000
-    timer = new Date().getTime()
-    player.update()
-    multis.forEach(multi => multi.update())
+    timeDelta = (Date.now() - timer) / 1000
+    timer = Date.now()
+    Player.update(player)
+    for(let key in sessions) {
+        Player.update(sessions[key])
+    }
     let context = canvas.getContext("2d")
     context.clearRect(0, 0, canvas.width, canvas.height)
     context.save()
@@ -143,9 +208,15 @@ function loop() {
     if(player.position.y > canvas.height/2) {
         context.translate(0, -player.position.y + canvas.height/2)
     }
-    context.fillRect(player.position.x - 25, player.position.y, 50, 50)
+    context.fillStyle = "red"
+    for(let key in sessions) {
+        context.fillRect(sessions[key].position.x - 25, sessions[key].position.y, 50, 50)
+    }
+    context.fillStyle = "blue"
     blocks.filter(block => Math.max(Math.abs(block.min.y - player.position.y), Math.abs(block.max.y - player.position.y)) < canvas.height).forEach(block => {
         context.fillRect(block.min.x, block.min.y, block.max.x - block.min.x, block.max.y - block.min.y)
     })
+    context.fillStyle = "black"
+    context.fillRect(player.position.x - 25, player.position.y, 50, 50)
     context.restore()
 }
