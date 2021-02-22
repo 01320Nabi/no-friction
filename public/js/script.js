@@ -111,7 +111,7 @@ ws.addEventListener("open", () => {
             type: "update",
             value: player,
         }))
-    }, 1000)
+    }, 100)
 })
 
 ws.addEventListener("close", () => {
