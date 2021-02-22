@@ -8,7 +8,7 @@
         <canvas id="nofriction"></canvas>
     </body>
     <script type="text/javascript">
-    let wsUri = "<%=ip%>"
+    let wsUri = location.origin.replace(/^http/, "ws")
     </script>
     <script type="text/javascript" src="js/script.js"></script>
 </html>

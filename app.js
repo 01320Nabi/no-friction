@@ -2,9 +2,8 @@ const uuid = require("uuid")
 let express = require("express")
 let app = express()
 const host = require("ip").address("public", "ipv4")
-const port = 8080
-const wsPort = 8081
-require("./router/router")(app, `ws://${host}:${wsPort}`)
+const port = process.env.PORT || 8080
+require("./router/router")(app)
 
 app.set("views", __dirname + "/views")
 app.set("view engine", "ejs")
@@ -16,7 +15,7 @@ let server = app.listen(port, () => console.log(`Server listening at ${host}:${p
 
 let WebSocket = require("ws")
 
-let wss = new WebSocket.Server({port: wsPort}, () => console.log(`WebSocket listening at ${host}:${wsPort}`))
+let wss = new WebSocket.Server({server}, () => console.log(`WebSocket listening at ${host}:${wsPort}`))
 
 let sessions = {}
 
