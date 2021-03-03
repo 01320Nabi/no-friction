@@ -43,7 +43,6 @@ class Player {
         this.velocity = new Vector(0, 0)
         this.accelaration = new Vector(0, 0)
         this.keys = {}
-        this.uuid = null
     }
     static update(inst) {
         inst.position = inst.position.add(inst.velocity)
@@ -51,13 +50,13 @@ class Player {
         inst.accelaration = new Vector(0, -3).scale(0.01)
         if(inst.position.x < -1000) {
             inst.position.x = -1000
-            inst.velocity.x = Math.max(inst.velocity.x, 0)
+            inst.velocity.x = -inst.velocity.x
         }
         if(inst.position.x > 1000) {
             inst.position.x = 1000
-            inst.velocity.x = Math.min(inst.velocity.x, 0)
+            inst.velocity.x = -inst.velocity.x
         }
-        jumpable = false
+        let controlable = false
         let A = {min: inst.position.add(new Vector(-25, 0)), max: inst.position.add(new Vector(25, 50))}
         blocks.forEach(B => {
             let n = B.min.add(B.max).scale(0.5).minus(A.min.add(A.max).scale(0.5))
@@ -74,7 +73,7 @@ class Player {
                     else {
                         normal = new Vector(0, 1)
                         inst.velocity.y = Math.max(inst.velocity.y, 0)
-                        jumpable = true
+                        controlable = true
                     }
                     inst.position = inst.position.add(normal.scale(overlap.y))
                 }
@@ -91,14 +90,16 @@ class Player {
                 }
             }
         })
-        if(inst.keys["ArrowRight"]) {
-            inst.accelaration = inst.accelaration.add(new Vector(5, 0).scale(0.01))
-        }
-        if(inst.keys["ArrowLeft"]) {
-            inst.accelaration = inst.accelaration.add(new Vector(-5, 0).scale(0.01))
-        }
-        if(inst.keys["ArrowUp"] && jumpable) {
-            inst.accelaration = inst.accelaration.add(new Vector(0, -inst.velocity.y)).add(new Vector(0, 6.1))
+        if(controlable) {
+            if(inst.keys["ArrowRight"]) {
+                inst.accelaration = inst.accelaration.add(new Vector(5, 0).scale(0.01))
+            }
+            if(inst.keys["ArrowLeft"]) {
+                inst.accelaration = inst.accelaration.add(new Vector(-5, 0).scale(0.01))
+            }
+            if(inst.keys["ArrowUp"]) {
+                inst.accelaration = inst.accelaration.add(new Vector(0, -inst.velocity.y)).add(new Vector(0, 6.1))
+            }
         }
     }
 }
@@ -109,10 +110,12 @@ ws.addEventListener("open", () => {
         for(let key in sessions) {
             Player.update(sessions[key])
         }
-        ws.send(JSON.stringify({
-            type: "update",
-            value: player,
-        }))
+        if(uuid) {
+            ws.send(JSON.stringify({
+                type: "update",
+                value: player,
+            }))
+        }
     }, 10)
 })
 
@@ -151,40 +154,33 @@ ws.addEventListener("message", e => {
 
 let player = new Player(new Vector(0, 50))
 
-let sessions = []
-
-let jumpable = false
+let sessions = {}
 
 window.onkeydown = function(e) {
     player.keys[e.code] = true
-    ws.send(JSON.stringify({
-        type: "key",
-        key: e.code,
-        value: true,
-    }))
+    if(uuid) {
+        ws.send(JSON.stringify({
+            type: "key",
+            key: e.code,
+            value: true,
+        }))
+    }
 }
 window.onkeyup = function(e) {
     player.keys[e.code] = false
-    ws.send(JSON.stringify({
-        type: "key",
-        key: e.code,
-        value: false,
-    }))
+    if(uuid) {
+        ws.send(JSON.stringify({
+            type: "key",
+            key: e.code,
+            value: false,
+        }))
+    }
 }
 
 let blocks = [
     {min: new Vector(-1025, -50), max: new Vector(1025, 0)},
     {min: new Vector(300, 500), max: new Vector(600, 550)},
-    {min: new Vector(-500, 600), max: new Vector(-400, 650)},
-    {min: new Vector(-400, 1200), max: new Vector(-300, 1250)},
-    {min: new Vector(200, 1250), max: new Vector(250, 1300)},
-    {min: new Vector(-100, 1850), max: new Vector(350, 1900)},
-    {min: new Vector(-100, 1850), max: new Vector(-50, 1950)},
-    {min: new Vector(-250, 2400), max: new Vector(-50, 2450)},
-    {min: new Vector(0, 2400), max: new Vector(200, 2450)},
-    {min: new Vector(-1025, 2600), max: new Vector(-975, 2650)},
-    {min: new Vector(975, 3100), max: new Vector(1025, 3150)},
-    {min: new Vector(-200, 3600), max: new Vector(200, 3650)},
+    {min: new Vector(-700, 600), max: new Vector(-400, 650)},
 ]
 
 function loop() {

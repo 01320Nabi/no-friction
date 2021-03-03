@@ -15,7 +15,7 @@ let server = app.listen(port, () => console.log(`Server listening at ${host}:${p
 
 let WebSocket = require("ws")
 
-let wss = new WebSocket.Server({server}, () => console.log(`WebSocket listening at ${host}:${wsPort}`))
+let wss = new WebSocket.Server({server}, () => console.log(`WebSocket listening at ${host}:${port}`))
 
 let sessions = {}
 
@@ -26,6 +26,21 @@ wss.on("connection", ws => {
         uuid: ws.id,
         value: sessions
     }))
+    sessions[ws.id] = {
+        position: {
+            x: 0,
+            y: 0,
+        },
+        velocity: {
+            x: 0,
+            y: 0,
+        },
+        accelaration: {
+            x: 0,
+            y: 0,
+        },
+        keys: {},
+    }
     console.log(`${ws.id} joined.`)
     ws.on("message", data => {
         let message = JSON.parse(data)
